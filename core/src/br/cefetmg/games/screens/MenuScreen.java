@@ -1,8 +1,12 @@
 package br.cefetmg.games.screens;
 
+import br.cefetmg.games.graphics.hud.SoundIcon;
 import br.cefetmg.games.transition.TransitionScreen;
+import br.cefetmg.games.sound.MyMusic;
+import br.cefetmg.games.sound.MySound;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.assets.loaders.TextureLoader;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.audio.Music;
@@ -10,6 +14,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.scenes.scene2d.Stage;
 
 /**
  * Uma tela de Menu Principal do jogo.
@@ -31,6 +36,8 @@ public class MenuScreen extends BaseScreen {
     public static final int LOGO_WIDTH = 960;
     public static final int LOGO_HEIGHT = 386;
 
+    private SoundIcon soundIcon;
+
     private TextureRegion background;
     private Texture btnPlay;
     private Texture btnExit;
@@ -40,11 +47,11 @@ public class MenuScreen extends BaseScreen {
     private Texture btnSurvival;
     private Texture btnBack;
     private Texture logo;
-    private Sound click1;
-    private Sound click2;
+    private MySound click1;
+    private MySound click2;
     private int selecionaModo = 0;
 
-    private Music musicaTema;
+    private MyMusic musicaTema;
 
     /**
      * Cria uma nova tela de menu.
@@ -83,8 +90,12 @@ public class MenuScreen extends BaseScreen {
 
         assets.load("menu/click1.mp3", Sound.class);
         assets.load("menu/click2.mp3", Sound.class);
+
+        assets.load("hud/no-sound-button.png", Texture.class, linearFilter);
+        assets.load("hud/sound-button.png", Texture.class, linearFilter);
+        soundIcon = new SoundIcon(new Stage(viewport, batch));
     }
-   
+
     @Override
     protected void assetsLoaded() {
         background = new TextureRegion(assets.get("menu/menu-background.png", Texture.class));
@@ -97,14 +108,18 @@ public class MenuScreen extends BaseScreen {
         btnBack = assets.get("menu/button_voltar.png", Texture.class);
         logo = assets.get("menu/logo.png", Texture.class);
 
-        musicaTema = assets.get("menu/meowautheme.mp3", Music.class);
+        musicaTema = new MyMusic(assets.get("menu/meowautheme.mp3", Music.class));
         musicaTema.setLooping(true);
+        musicaTema.setVolume(0.4f);
         musicaTema.play();
 
-        click1 = assets.get("menu/click1.mp3", Sound.class);
-        click2 = assets.get("menu/click2.mp3", Sound.class);
+        click1 = new MySound(assets.get("menu/click1.mp3", Sound.class));
+        click2 = new MySound(assets.get("menu/click2.mp3", Sound.class));
+        soundIcon.create(
+                    assets.get("hud/no-sound-button.png", Texture.class),
+                    assets.get("hud/sound-button.png", Texture.class));
+        Gdx.input.setInputProcessor(soundIcon.getInputProcessor());
     }
-
 
     /**
      * Recebe <em>input</em> do jogador.
@@ -127,11 +142,8 @@ public class MenuScreen extends BaseScreen {
                     click2.play();
                 }
                 if (rankingBounds.contains(clickPosition.x, clickPosition.y)) {
-                    /*
-                    
-                    CHAMADA DA TELA DE RANKING
-                    
-                     */
+                    transitionScreen(new RankingScreen(super.game, this),
+                            TransitionScreen.Effect.FADE_IN_OUT, 0.3f);
 
                     click2.play();
                 }
@@ -149,17 +161,12 @@ public class MenuScreen extends BaseScreen {
                 }
             } else {
                 if (playBounds.contains(clickPosition.x, clickPosition.y)) {
-                    //CHAMADA DO MODO NORMAL
                     click2.play();
-                    navigateToMicroGameScreen();
+                    navigateToMicroGameScreen(false);
                 }
                 if (rankingBounds.contains(clickPosition.x, clickPosition.y)) {
-                    /*
-                    
-                    CHAMADA DO MODO SURVIVAL
-                    
-                     */
                     click2.play();
+                    navigateToMicroGameScreen(true);
                 }
                 if (creditsBounds.contains(clickPosition.x, clickPosition.y)) {
                     //Volta para os botões
@@ -178,6 +185,7 @@ public class MenuScreen extends BaseScreen {
      */
     @Override
     public void update(float dt) {
+        soundIcon.update(dt);
     }
 
     /**
@@ -211,14 +219,21 @@ public class MenuScreen extends BaseScreen {
         }
 
         batch.end();
+
+        soundIcon.draw();
     }
 
     /**
      * Navega para a tela de jogo.
      */
-    private void navigateToMicroGameScreen() {
-         transitionScreen(new OverworldScreen(super.game, this),
-                        TransitionScreen.Effect.FADE_IN_OUT, 1f);
+    private void navigateToMicroGameScreen(boolean isSurvival) {
+        if (isSurvival) {
+            transitionScreen(new PlayingGamesScreen(super.game, this),
+                    TransitionScreen.Effect.FADE_IN_OUT, 0.7f);
+        } else {
+            transitionScreen(new OverworldScreen(super.game, this),
+                    TransitionScreen.Effect.FADE_IN_OUT, 0.4f);
+        }
     }
 
     /**

@@ -5,6 +5,7 @@ import br.cefetmg.games.transition.TransitionScreen;
 import br.cefetmg.games.graphics.hud.Hud;
 import br.cefetmg.games.logic.chooser.BaseGameSequencer;
 import br.cefetmg.games.logic.chooser.GameSequencer;
+import br.cefetmg.games.logic.chooser.InfiniteGameSequencer;
 import br.cefetmg.games.minigames.MiniGame;
 import br.cefetmg.games.minigames.factories.*;
 import br.cefetmg.games.minigames.util.MiniGameState;
@@ -16,8 +17,13 @@ import com.badlogic.gdx.utils.Timer.Task;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.audio.Sound;
 import br.cefetmg.games.minigames.util.MiniGameStateObserver;
+import br.cefetmg.games.sound.MyMusic;
+import br.cefetmg.games.sound.MySound;
 import com.badlogic.gdx.assets.loaders.TextureLoader;
 import com.badlogic.gdx.assets.loaders.TextureLoader.TextureParameter;
+import java.util.Arrays;
+import java.util.HashSet;
+import com.badlogic.gdx.audio.Music;
 import java.util.Set;
 
 /**
@@ -34,10 +40,56 @@ public class PlayingGamesScreen extends BaseScreen
     private int lives;
     private boolean hasPreloaded;
     private final InputMultiplexer inputMultiplexer;
-    private Sound gameWonSound;
-    private Sound gameOverSound;
-    private Sound youLoseSound;
-    private Sound youWinSound;
+    private MySound gameWonSound;
+    private MySound gameOverSound;
+    private MySound youLoseSound;
+    private MySound youWinSound;
+    private MyMusic intergames;
+
+    public PlayingGamesScreen(Game game, BaseScreen previous) {
+        super(game, previous);
+        state = PlayScreenState.PLAYING;
+        lives = Config.MAX_LIVES;
+        sequencer = new InfiniteGameSequencer(new HashSet<MiniGameFactory>(
+                Arrays.asList(
+                        // gustavo henrique e rogenes
+                        new BasCATballFactory(),
+                        new RunningFactory(),
+                        // rafael e luis carlos
+                        new DodgeTheVeggiesFactory(),
+                        new CatchThatHomeworkFactory(),
+                        // adriel
+                        new UnderwaterCatFactory(),
+                        // arthur e pedro
+                        new DogBarksCatFleeFactory(),
+                        new ClickFindCatFactory(),
+                        // cassiano e gustavo jordão
+                        new TicCatDogFactory(),
+                        new JumpTheObstaclesFactory(),
+                        // luiza e pedro cordeiro
+                        new SpyFishFactory(),
+                        new PhantomCatFactory(),
+                        // gabriel e natália
+                        new MouseAttackFactory(),
+                        new JetRatFactory(),
+                        // emanoel e vinícius
+                        new HeadSoccerFactory(),
+                        new CatAvoiderFactory(),
+                        // joão e miguel
+                        new CannonCatFactory(),
+                        new MeowsicFactory(),
+                        // túlio
+                        new RainingCatsFactory(),
+                        new NinjaCatFactory(),
+                        //estevao e sarah
+                        new TheFridgeGameFactory(),
+                        new KillTheRatsFactory()
+                )
+        ), 0, 1, this, this);
+
+        hud = new Hud(this, this);
+        inputMultiplexer = new InputMultiplexer();
+    }
 
     public PlayingGamesScreen(Game game, BaseScreen previous, int nGames, Set<MiniGameFactory> games,
             float initialDifficulty, float finalDifficulty) {
@@ -45,6 +97,7 @@ public class PlayingGamesScreen extends BaseScreen
         state = PlayScreenState.PLAYING;
         lives = Config.MAX_LIVES;
         sequencer = new GameSequencer(nGames, games, initialDifficulty, finalDifficulty, this, this);
+
         hud = new Hud(this, this);
         inputMultiplexer = new InputMultiplexer();
     }
@@ -62,17 +115,24 @@ public class PlayingGamesScreen extends BaseScreen
         assets.load("hud/lifeTexture.png", Texture.class, linearFilter);
         assets.load("hud/explodeLifeTexture.png", Texture.class, linearFilter);
         assets.load("hud/clock.png", Texture.class, linearFilter);
-        assets.load("hud/tick-tock.mp3", Sound.class);
+
         assets.load("hud/back-menu-button.png", Texture.class, linearFilter);
+        assets.load("hud/back-game-button.png", Texture.class, linearFilter);
         assets.load("hud/confirm-button.png", Texture.class, linearFilter);
         assets.load("hud/unnconfirmed-button.png", Texture.class, linearFilter);
+        assets.load("hud/tick-tock.mp3", Sound.class);
         assets.load("sound/gamewon.mp3", Sound.class);
         assets.load("sound/gameover.wav", Sound.class);
         assets.load("sound/youwin.wav", Sound.class);
         assets.load("sound/youlose.wav", Sound.class);
+        assets.load("hud/intergames.wav", Music.class);
+
+        assets.load("hud/no-sound-button.png", Texture.class, linearFilter);
+        assets.load("hud/sound-button.png", Texture.class, linearFilter);
+
         Gdx.input.setInputProcessor(inputMultiplexer);
     }
-    
+
     @Override
     protected void assetsLoaded() {
     }
@@ -93,9 +153,17 @@ public class PlayingGamesScreen extends BaseScreen
         if (state == PlayScreenState.FINISHED_WON
                 || state == PlayScreenState.FINISHED_GAME_OVER) {
             if (Gdx.input.justTouched()) {
-                // volta para o menu principal
-                 transitionScreen(new OverworldScreen(super.game, this),
-                        TransitionScreen.Effect.FADE_IN_OUT, 1f);
+                if (sequencer instanceof InfiniteGameSequencer) {
+                    transitionScreen(
+                            new RankingScreen(
+                                    super.game, this, sequencer.getGameNumber()),
+                            TransitionScreen.Effect.FADE_IN_OUT, 0.7f);
+
+                } else if (sequencer instanceof GameSequencer) {
+                    // volta para o menu principal
+                    transitionScreen(new OverworldScreen(super.game, this),
+                            TransitionScreen.Effect.FADE_IN_OUT, 0.5f);
+                }
             }
         }
     }
@@ -150,7 +218,7 @@ public class PlayingGamesScreen extends BaseScreen
             // atualiza o número de sequência do jogo atual na HUD
             hud.setGameIndex(sequencer.getGameNumber());
         } else {
-            transitionGame(TransitionScreen.Effect.FADE_IN_OUT, 0.5f, new Task() {
+            transitionGame(TransitionScreen.Effect.FADE_IN_OUT, 0.3f, new Task() {
                 @Override
                 public void run() {
                     currentGame = sequencer.nextGame();
@@ -176,10 +244,10 @@ public class PlayingGamesScreen extends BaseScreen
                 advance();
             }
 
-            gameWonSound = assets.get("sound/gamewon.mp3");
-            gameOverSound = assets.get("sound/gameover.wav");
-            youLoseSound = assets.get("sound/youlose.wav");
-            youWinSound = assets.get("sound/youwin.wav");
+            gameWonSound = new MySound(assets.get("sound/gamewon.mp3", Sound.class));
+            gameOverSound = new MySound(assets.get("sound/gameover.wav", Sound.class));
+            youLoseSound = new MySound(assets.get("sound/youlose.wav", Sound.class));
+            youWinSound = new MySound(assets.get("sound/youwin.wav", Sound.class));
 
             hasPreloaded = true;
         }
@@ -214,6 +282,9 @@ public class PlayingGamesScreen extends BaseScreen
                 hud.showGameInstructions(currentGame.getInstructions());
                 hud.startInitialCountdown();
                 hud.showPauseButton();
+                intergames = new MyMusic(assets.get("hud/intergames.wav", Music.class));
+                intergames.play();
+                hud.hideSoundsButton();
                 break;
 
             case PLAYING:
@@ -259,6 +330,7 @@ public class PlayingGamesScreen extends BaseScreen
                 hud.cancelEndingTimer();
                 break;
             case BACK_MENU:
+                hud.showSoundsButton();
                 transitionTo(PlayScreenState.BACK_MENU);
         }
     }
@@ -285,7 +357,7 @@ public class PlayingGamesScreen extends BaseScreen
             inputMultiplexer.addProcessor(currentGame.getInputProcessor());
         }
     }
-    
+
     @Override
     public void showMessage(String strMessage) {
         hud.showMessage(strMessage);
